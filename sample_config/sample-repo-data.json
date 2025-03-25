@@ -1,0 +1,248 @@
+{
+    "settings": {
+        "target_repo_type": "github",
+        "log_level": "info"
+    },
+    "defaults": {
+        "repo_settings": {
+            "standard": {
+                "allow_merge_commit": true,
+                "allow_rebase_merge": false,
+                "allow_squash_merge": true,
+                "default_branch": "main",
+                "delete_branch_on_merge": true,
+                "has_discussions": false,
+                "has_issues": false,
+                "has_projects": false,
+                "has_wiki": false,
+                "private": true
+            }
+        },
+        "subversion_ignore_paths": ".*(\\.jar|\\.class|\\.log|\\.xls|\\.xlsx|\\.zip|\\.doc|\\.docx|\\.pptx|\\.tar|\\.rar)$",
+        "team_permissions": {
+            "standard": {
+                "team1": "push",
+                "devops": "admin"
+            },
+            "iacconfig": {
+                "team1": "push",
+                "devops": "admin",
+                "gitops": "pull"
+            },
+            "devops": {
+                "devops": "admin"
+            }
+        },
+        "user_permissions": {
+            "iacconfig": {
+                "elaps-gh1": "admin"
+            }
+        },
+        "webhooks": {
+            "standard": {
+                "url": "https://example.com/webhook/",
+                "content_type": "form",
+                "events": [
+                    "push",
+                    "pull_request",
+                    "pull_request_review",
+                    "pull_request_review_comment"
+                ],
+                "insecure_ssl": "0"
+            }
+        },
+        "gitignore": {
+            "inline_sample": {
+                "config": [
+                    ".DS_Store",
+                    ".idea",
+                    ".vscode",
+                    "*.iml",
+                    "*.log",
+                    "*.class",
+                    "*.jar",
+                    "*.war",
+                    "*.ear",
+                    "*.zip",
+                    "*.tar.gz",
+                    "*.tgz",
+                    "*.tar.bz2"
+                ],
+                "branches": [
+                    "main"
+                ]
+            },
+            "fromurl_sample": {
+                "config": "https://raw.githubusercontent.com/github/gitignore/refs/heads/main/Python.gitignore",
+                "branches": [
+                    "main"
+                ]
+            },               
+            "fromfile_sample": {
+                "config": "../sample_config/sample.gitignore",
+                "branches": [
+                    "main"
+                ]
+            }
+        },
+        "branch_protection": {
+            "main_only_allow_push": {
+                "branches": ["main"],
+                "protections": {
+                    "required_status_checks": null,
+                    "enforce_admins": true,
+                    "required_pull_request_reviews": {
+                        "dismissal_restrictions": {},
+                        "dismiss_stale_reviews": true,
+                        "require_code_owner_reviews": false,
+                        "required_approving_review_count": 1,
+                        "require_last_push_approval": false,
+                        "bypass_pull_request_allowances": {
+                            "users": ["alan-schwarzenberger"],
+                            "teams": [],
+                            "apps": []
+                        }
+                    },
+                    "restrictions": {
+                        "users": ["alan-schwarzenberger"],
+                        "teams": ["devops"]
+                    },
+                    "block_creations": false,
+                    "allow_force_pushes": false,
+                    "allow_deletions": false,
+                    "required_conversation_resolution": false,
+                    "required_linear_history": false,
+                    "required_signatures": false
+                }
+            }
+        },
+        "rulesets": {
+            "iacconfig-forcepr": {
+                "name": "iacconfig-forcepr",
+                "target": "branch",
+                "enforcement": "active",
+                "bypass_actors": [],
+                "conditions": {
+                    "ref_name": {
+                        "exclude": [],
+                        "include": [
+                            "refs/heads/release-*"
+                        ]
+                    }
+                },
+                "rules": [
+                    {
+                        "type": "deletion"
+                    },
+                    {
+                        "type": "non_fast_forward"
+                    },
+                    {
+                        "type": "creation"
+                    },
+                    {
+                        "type": "update"
+                    },
+                    {
+                        "type": "pull_request",
+                        "parameters": {
+                            "required_approving_review_count": 1,
+                            "dismiss_stale_reviews_on_push": true,
+                            "require_code_owner_review": true,
+                            "require_last_push_approval": false,
+                            "required_review_thread_resolution": false
+                        }
+                    }
+                ]
+            }
+        },
+        "codeowners": {
+            "standard": {
+                "branches": ["main"],
+                "config": [
+                    "# codeowners for all files",
+                    "* @alan-schwarzenberger"
+                ]
+            },
+            "special": {
+                "branches": ["main", "develop"],
+                "config": [
+                    "# codeowners for all files",
+                    "* @specialuser123"
+                ]
+            }
+        }
+    },
+    "repos": {
+        "repo-test-type1": {
+            "owner": "epam-test-org1",
+            "enforce_repo_settings": true,
+            "permissions_remove_unwanted": true,
+            "repo_settings": {
+                "use_default": "standard"
+            },
+            "application": "repo-app-1",
+            "create_repo": true,
+            "repo_topics": [
+                "appid-123456",
+                "distributed-false",
+                "another-repo-topic"
+            ],
+            "team_permissions": {
+                "standard": ""
+            },
+            "user_permissions": {
+                "special-user-test345": "admin",
+                "iacconfig": ""
+            },
+            "gitignore": {
+                "inline_sample": ""
+            },
+            "branch_protection": {
+                "main_only_allow_push": ""
+            },
+            "rulesets": {
+                "iacconfig-forcepr": ""
+            },
+            "codeowners": {
+                "standard": ""
+            }
+        },
+        "repo-test-type2": {
+            "owner": "epam-test-org1",
+            "enforce_repo_settings": true,
+            "repo_settings": {
+                "use_default": "standard",
+                "has_wiki": true
+            },
+            "application": "repo-app-1",
+            "create_repo": true,
+            "repo_topics": [
+                "appid-123456",
+                "distributed-false",
+                "another-repo-topic"
+            ],
+            "team_permissions": {
+                "iacconfig": ""
+            },
+            "user_permissions": {
+                "special-user-test345": "admin",
+                "iacconfig": ""
+            },
+            "webhooks": {
+                "standard": "",
+                "special-webhook": {
+                    "url": "https://example.com/webhook2/",
+                    "content_type": "form",
+                    "events": [
+                        "push"
+                    ],
+                    "insecure_ssl": "0"
+                }
+            },
+            "branch_protection": {
+                "main_only_allow_push": ""
+            }
+        }
+    }
+}

@@ -1,0 +1,29 @@
+#-------------Eclipse-------------
+.metadata
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings/
+.loadpath
+.recommenders
+
+#-------------VScode-------------
+.vscode/
+
+#-------------MacOS-------------
+.DS_Store
+
+#-------------Python-------------
+.venv/
+__pycache__/
+
+#ignore any log files created by the application
+*.log
+
+#ignore any data files created by the application
+repo-data.json
+repo-data.csv
