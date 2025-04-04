@@ -293,8 +293,178 @@ def github_create_repo(
         raise Exception("An error occurred while creating repo: {}", e)
 
 
+def github_enforce_branch_protection(
+    *,
+    github_repo,
+    repo_name,
+    repo_owner,
+    expected_settings,
+    indent_level=0,
+    dry_run=False,
+):
+    """
+    Enforce branch protection rules for a GitHub repository.
+
+    Args:
+        github_repo (object): The GitHub repository object.
+        repo_name (str): The name of the repository.
+        repo_owner (str): The owner of the repository.
+        expected_settings (dict): The expected settings containing branch protection rules.
+        indent_level (int): The indentation level for logging.
+        dry_run (bool): If True, simulate the changes without applying them.
+
+    Returns:
+        None
+    """
+    try:
+        branch_protection_data = expected_settings.get("branch_protection", {})
+        if not branch_protection_data:
+            log_message(
+                LogLevel.INFO,
+                f"No branch protection settings found for repository '{repo_name}'. Skipping branch protection enforcement.",
+                indent_level=indent_level,
+            )
+            return
+
+        for protection_name, protection_settings in branch_protection_data.items():
+            branches = protection_settings.get("branches", ["main"])
+            protections = protection_settings.get("protections", {})
+
+            for branch_name in branches:
+                log_message(
+                    LogLevel.INFO,
+                    f"Enforcing branch protection '{protection_name}' for branch '{branch_name}' in repository '{repo_name}'.",
+                    indent_level=indent_level,
+                )
+
+                if dry_run:
+                    log_message(
+                        LogLevel.INFO,
+                        f"[Dry-run] Would enforce branch protection '{protection_name}' for branch '{branch_name}' in repository '{repo_name}'.",
+                        indent_level=indent_level,
+                    )
+                    continue
+
+                try:
+                    branch = github_repo.get_branch(branch_name)
+                    log_message(
+                        LogLevel.DEBUG,
+                        f"Retrieved branch '{branch_name}' for repository '{repo_name}'.",
+                        indent_level=indent_level + 1,
+                    )
+                except GithubException as e:
+                    if e.status == 404:
+                        log_message(
+                            LogLevel.WARNING,
+                            f"Branch '{branch_name}' does not exist in repository '{repo_name}'. Skipping branch protection enforcement.",
+                            indent_level=indent_level,
+                        )
+                        continue
+                    else:
+                        log_message(
+                            LogLevel.ERROR,
+                            f"Failed to retrieve branch '{branch_name}' in repository '{repo_name}': {e}",
+                            indent_level=indent_level,
+                        )
+                        raise
+
+                # Apply branch protection rules with safe handling for missing elements
+                log_message(
+                    LogLevel.DEBUG,
+                    f"Applying branch protection rules for branch '{branch_name}' in repository '{repo_name}'.",
+                    indent_level=indent_level + 1,
+                )
+                try:
+                    branch.edit_protection(
+                        enforce_admins=protections.get("enforce_admins", False),
+                        allow_force_pushes=protections.get("allow_force_pushes", False),
+                        allow_deletions=protections.get("allow_deletions", False),
+                        block_creations=protections.get("block_creations", False),
+                        required_conversation_resolution=protections.get(
+                            "required_conversation_resolution", False
+                        ),
+                        required_linear_history=protections.get(
+                            "required_linear_history", False
+                        ),
+                    )
+                    log_message(
+                        LogLevel.DEBUG,
+                        f"Basic branch protection rules applied for branch '{branch_name}' in repository '{repo_name}'.",
+                        indent_level=indent_level + 1,
+                    )
+                except GithubException as e:
+                    if e.status == 403 and "branch is locked" in str(e):
+                        log_message(
+                            LogLevel.WARNING,
+                            f"Branch '{branch_name}' in repository '{repo_name}' is locked. Skipping branch protection enforcement.",
+                            indent_level=indent_level,
+                        )
+                    else:
+                        log_message(
+                            LogLevel.ERROR,
+                            f"Failed to enforce branch protection for branch '{branch_name}' in repository '{repo_name}': {e}",
+                            indent_level=indent_level,
+                        )
+                        raise
+
+                # Set required status checks separately
+                required_status_checks = protections.get("required_status_checks", None)
+                if required_status_checks:
+                    log_message(
+                        LogLevel.DEBUG,
+                        f"Applying required status checks for branch '{branch_name}' in repository '{repo_name}': {required_status_checks}",
+                        indent_level=indent_level + 1,
+                    )
+                    branch.edit_required_status_checks(
+                        contexts=required_status_checks.get("contexts", []),
+                        strict=required_status_checks.get("strict", False),
+                    )
+
+                # Set required pull request reviews separately
+                required_pull_request_reviews = protections.get(
+                    "required_pull_request_reviews", None
+                )
+                if required_pull_request_reviews:
+                    log_message(
+                        LogLevel.DEBUG,
+                        f"Applying required pull request reviews for branch '{branch_name}' in repository '{repo_name}': {required_pull_request_reviews}",
+                        indent_level=indent_level + 1,
+                    )
+                    branch.edit_required_pull_request_reviews(
+                        dismiss_stale_reviews=required_pull_request_reviews.get(
+                            "dismiss_stale_reviews", False
+                        ),
+                        require_code_owner_reviews=required_pull_request_reviews.get(
+                            "require_code_owner_reviews", False
+                        ),
+                        required_approving_review_count=required_pull_request_reviews.get(
+                            "required_approving_review_count", 1
+                        ),
+                    )
+
+                log_message(
+                    LogLevel.INFO,
+                    f"Branch protection '{protection_name}' enforced for branch '{branch_name}' in repository '{repo_name}'.",
+                    indent_level=indent_level,
+                )
+
+    except Exception as e:
+        log_message(
+            LogLevel.ERROR,
+            f"Failed to enforce branch protection for repository '{repo_name}': {e}",
+            indent_level=indent_level,
+        )
+        raise
+
+
 def github_enforce_gitignore(
-    *, github_repo, repo_name, repo_owner, expected_settings, indent_level=0
+    *,
+    github_repo,
+    repo_name,
+    repo_owner,
+    expected_settings,
+    indent_level=0,
+    dry_run=False,
 ):
     """
     Enforce the .gitignore configuration for a GitHub repository.
@@ -305,6 +475,13 @@ def github_enforce_gitignore(
         indent_level (int): The indentation level for logging.
     """
     try:
+        if dry_run:
+            log_message(
+                LogLevel.INFO,
+                f"[Dry-run] Would enforce .gitignore for repository '{repo_name}'",
+                indent_level=indent_level,
+            )
+            return
         gitignore_data = expected_settings.get("gitignore", None)
         if not gitignore_data:
             log_message(
@@ -767,12 +944,179 @@ def github_enforce_repo_webhooks(
         )
 
 
+def github_enforce_rulesets(
+    *, github_repo, expected_settings, github_token, indent_level=0, dry_run=False
+):
+    """
+    Enforce the desired rulesets on a repository using the GitHub REST API.
+
+    Args:
+        github_repo: The repository object.
+        expected_settings: A list of desired ruleset configurations.
+        github_token: The GitHub personal access token for authentication.
+        indent_level: The indentation level for logging.
+        dry_run: If True, simulate the changes without applying them.
+
+    Returns:
+        None
+    """
+    try:
+        # Fetch the current user to get their actor_id
+        headers = {"Authorization": f"token {github_token}"}
+        user_response = requests.get("https://api.github.com/user", headers=headers)
+        if user_response.status_code == 200:
+            current_user = user_response.json()
+            actor_id = current_user.get("id")
+            log_message(
+                LogLevel.INFO,
+                f"Current user's actor_id: {actor_id}",
+                indent_level=indent_level,
+            )
+        else:
+            log_message(
+                LogLevel.WARNING,
+                f"Failed to fetch current user's actor_id: {user_response.text}",
+                indent_level=indent_level,
+            )
+    except Exception as e:
+        log_message(
+            LogLevel.ERROR,
+            f"Error while fetching current user's actor_id: {e}",
+            indent_level=indent_level,
+        )
+
+    try:
+        if dry_run:
+            log_message(
+                LogLevel.INFO,
+                f"[Dry-run] Would enforce rulesets for {github_repo.full_name}",
+                indent_level=indent_level,
+            )
+            return  # Simulate no changes
+
+        log_message(
+            LogLevel.INFO,
+            f"Enforcing rulesets for {github_repo.full_name}",
+            indent_level=indent_level,
+        )
+
+        # Check if there are no rulesets in the expected settings
+        if not expected_settings.get("rulesets"):
+            log_message(
+                LogLevel.INFO,
+                f"No rulesets specified in expected settings for {github_repo.full_name}",
+                indent_level=indent_level,
+            )
+            return
+
+        # Get the repository's API URL
+        repo_api_url = github_repo.url
+
+        # Fetch existing rulesets using the REST API
+        headers = {"Authorization": f"token {github_token}"}
+        response = requests.get(f"{repo_api_url}/rulesets", headers=headers)
+
+        if response.status_code != 200:
+            log_message(
+                LogLevel.ERROR,
+                f"Failed to fetch existing rulesets for repository '{github_repo.full_name}': {response.text}",
+                indent_level=indent_level,
+            )
+            return
+
+        try:
+            existing_rulesets = response.json()
+            if not isinstance(existing_rulesets, list):
+                raise ValueError("Unexpected response format for rulesets.")
+        except ValueError as e:
+            log_message(
+                LogLevel.ERROR,
+                f"Failed to parse rulesets response for repository '{github_repo.full_name}': {e}. Response content: {response.text}",
+                indent_level=indent_level,
+            )
+            return
+
+        # Compare and enforce rulesets
+        for ruleset_name, desired_ruleset in expected_settings["rulesets"].items():
+            # Ensure desired_ruleset is a dictionary
+            if not isinstance(desired_ruleset, dict):
+                log_message(
+                    LogLevel.WARNING,
+                    f"Ruleset '{ruleset_name}' is not a valid dictionary. Skipping.",
+                    indent_level=indent_level,
+                )
+                continue
+
+            # Check if a matching ruleset already exists
+            matching_ruleset = next(
+                (
+                    r
+                    for r in existing_rulesets
+                    if r.get("name") == desired_ruleset.get("name")
+                ),
+                None,
+            )
+
+            if matching_ruleset:
+                # Update the existing ruleset
+                log_message(
+                    LogLevel.INFO,
+                    f"Updating existing ruleset '{desired_ruleset['name']}' for repository '{github_repo.full_name}'",
+                    indent_level=indent_level + 1,
+                )
+                if not dry_run:
+                    update_response = requests.patch(
+                        f"{repo_api_url}/rulesets/{matching_ruleset['id']}",
+                        headers=headers,
+                        json=desired_ruleset,
+                    )
+                    if update_response.status_code != 200:
+                        log_message(
+                            LogLevel.ERROR,
+                            f"Failed to update ruleset '{desired_ruleset['name']}': {update_response.text}",
+                            indent_level=indent_level + 1,
+                        )
+            else:
+                # Create a new ruleset
+                log_message(
+                    LogLevel.INFO,
+                    f"Creating new ruleset '{desired_ruleset['name']}' for repository '{github_repo.full_name}'",
+                    indent_level=indent_level + 1,
+                )
+                if not dry_run:
+                    create_response = requests.post(
+                        f"{repo_api_url}/rulesets",
+                        headers=headers,
+                        json=desired_ruleset,
+                    )
+                    if create_response.status_code != 201:
+                        log_message(
+                            LogLevel.ERROR,
+                            f"Failed to create ruleset '{desired_ruleset['name']}': {create_response.text}",
+                            indent_level=indent_level + 1,
+                        )
+
+        log_message(
+            LogLevel.INFO,
+            f"Rulesets enforced for repository {github_repo.full_name}",
+            indent_level=indent_level,
+        )
+    except Exception as e:
+        log_message(
+            LogLevel.ERROR,
+            f"Error while enforcing rulesets in repository {github_repo.full_name}: {e}",
+            indent_level=indent_level,
+        )
+        raise
+
+
 def github_process_target_repo(
     *,
     github_target,
     github_user_login,
     repo_name,
     expected_repo_data,
+    github_token,
     indent_level=0,
     dry_run=False,
 ):
@@ -859,27 +1203,27 @@ def github_process_target_repo(
             expected_settings=expected_repo_data["repo_settings"],
             reponame=repo_name,
             repoowner=repo_owner,
-            indent_level=1,
+            indent_level=indent_level + 1,
             dry_run=dry_run,
         )
         github_enforce_repo_user_permissions(
             github_instance=github_target,
             repo_name=repo_name,
             expected_repo_data=expected_repo_data,
-            indent_level=1,
+            indent_level=indent_level + 1,
             dry_run=dry_run,
         )
         github_enforce_repo_team_permissions(
             github_instance=github_target,
             repo_name=repo_name,
             expected_repo_data=expected_repo_data,
-            indent_level=1,
+            indent_level=indent_level + 1,
             dry_run=dry_run,
         )
         github_enforce_repo_webhooks(
             github_repo=github_target_repo,
             expected_settings=expected_repo_data,
-            indent_level=1,
+            indent_level=indent_level + 1,
             dry_run=dry_run,
         )
         github_enforce_gitignore(
@@ -887,7 +1231,23 @@ def github_process_target_repo(
             repo_name=repo_name,
             repo_owner=repo_owner,
             expected_settings=expected_repo_data,
-            indent_level=1,
+            indent_level=indent_level + 1,
+            dry_run=dry_run,
+        )
+        github_enforce_branch_protection(
+            github_repo=github_target_repo,
+            repo_name=repo_name,
+            repo_owner=repo_owner,
+            expected_settings=expected_repo_data,
+            indent_level=indent_level + 1,
+            dry_run=dry_run,
+        )
+        github_enforce_rulesets(
+            github_repo=github_target_repo,
+            expected_settings=expected_repo_data,
+            github_token=github_token,
+            indent_level=indent_level + 1,
+            dry_run=dry_run,
         )
     return True
 

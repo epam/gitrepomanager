@@ -98,6 +98,132 @@ def csv_file_to_json_file(csv_file_path, json_file_path):
             "config": "../../master.gitignore",
             "branches": ["main"],
         }
+        data["defaults"]["branch_protection"]["mainonlyallowpush"] = {
+            "branches": ["main"],
+            "protections": {
+                "required_status_checks": None,
+                "enforce_admins": True,
+                "required_pull_request_reviews": {
+                    "dismiss_stale_reviews": True,
+                    "require_code_owner_reviews": False,
+                    "required_approving_review_count": 1,
+                    "require_last_push_approval": False,
+                    "bypass_pull_request_allowances": {
+                        "users": ["N86D49", "TRVEU-JENKINS-SVN"],
+                        "teams": [],
+                    },
+                },
+                "restrictions": {
+                    "users": [],
+                    "teams": ["devops", "epam", "agile-development"],
+                },
+                "block_creations": False,
+                "allow_force_pushes": False,
+                "allow_deletions": False,
+                "lock branch": False,
+                "required_conversation_resolution": False,
+                "required_linear_history": False,
+                "required_signatures": False,
+            },
+        }
+        data["defaults"]["branch_protection"]["epam"] = {
+            "branches": ["main"],
+            "protections": {
+                "required_status_checks": None,
+                "enforce_admins": True,
+                "required_pull_request_reviews": {
+                    "dismiss_stale_reviews": True,
+                    "require_code_owner_reviews": False,
+                    "required_approving_review_count": 1,
+                    "require_last_push_approval": False,
+                    "bypass_pull_request_allowances": {
+                        "users": [
+                            "N86D48",
+                            "N86D49",
+                            "N86D4F",
+                            "N86D71",
+                            "TRVEU-JENKINS-SVN",
+                        ],
+                        "teams": [],
+                    },
+                },
+                "restrictions": {
+                    "users": [],
+                    "teams": [
+                        "devops",
+                        "epam",
+                    ],
+                },
+                "block_creations": False,
+                "allow_force_pushes": False,
+                "allow_deletions": False,
+                "lock branch": False,
+                "required_conversation_resolution": False,
+                "required_linear_history": False,
+                "required_signatures": False,
+            },
+        }
+        data["defaults"]["branch_protection"]["iacconfig"] = {
+            "branches": ["main", "release-dev", "release-test", "release-mo"],
+            "protections": {
+                "required_status_checks": None,
+                "enforce_admins": True,
+                "required_pull_request_reviews": None,
+                "restrictions": {
+                    "users": [],
+                    "teams": [
+                        "devops",
+                        "epam",
+                    ],
+                },
+                "block_creations": False,
+                "allow_force_pushes": False,
+                "allow_deletions": False,
+                "lock branch": False,
+                "required_conversation_resolution": False,
+                "required_linear_history": False,
+                "required_signatures": False,
+            },
+        }
+        data["defaults"]["rulesets"] = {}
+        data["defaults"]["rulesets"]["iacconfig"] = {
+            "name": "iacconfig-forcepr",
+            "target": "branch",
+            "enforcement": "active",
+            "bypass_actors": [
+                {
+                    # repository admin
+                    "actor_id": 5,
+                    "actor_type": "RepositoryRole",
+                    "bypass_mode": "always",
+                },
+                {
+                    # uk/devops
+                    "actor_id": 419,
+                    "actor_type": "Team",
+                    "bypass_mode": "always",
+                },
+            ],
+            "conditions": {
+                "ref_name": {"exclude": [], "include": ["refs/heads/release-*"]}
+            },
+            "rules": [
+                {"type": "deletion"},
+                {"type": "non_fast_forward"},
+                {"type": "creation"},
+                {"type": "update"},
+                {
+                    "type": "pull_request",
+                    "parameters": {
+                        "required_approving_review_count": 1,
+                        "dismiss_stale_reviews_on_push": True,
+                        "require_code_owner_review": True,
+                        "require_last_push_approval": False,
+                        "required_review_thread_resolution": False,
+                    },
+                },
+            ],
+        }
         data["repos"] = {}
 
         # Open the CSV file for reading
@@ -350,6 +476,68 @@ def get_expected_repo_data(repo_config_data, default_config_data, indent_level=0
                     "config": gitignore_config,
                     "branches": gitignore_branches,
                 }
+        elif key == "branch_protection":
+            # Get the desired branch protection settings from the repo_data
+            desired_branch_protection_settings = repo_config_data.get(
+                "branch_protection", {}
+            )
+            # Expand multiple branch protection entries
+            expanded_branch_protection_settings = {}
+            for (
+                protection_name,
+                protection_data,
+            ) in desired_branch_protection_settings.items():
+                if not protection_data:
+                    # Use default branch protection settings if desired config is empty
+                    protection_data = default_config_data.get(
+                        "branch_protection", {}
+                    ).get(protection_name, {})
+
+                # Extract branches and protection rules
+                branch_protection_branches = protection_data.get("branches", ["main"])
+                branch_protection_rules = protection_data.get("protections", {})
+
+                # Validate the type of branch_protection_rules
+                if not isinstance(branch_protection_rules, dict):
+                    log_message(
+                        LogLevel.WARNING,
+                        f"Branch protection rules type is unrecognized for '{protection_name}'.",
+                        indent_level=indent_level,
+                    )
+                    branch_protection_rules = {}
+
+                expanded_branch_protection_settings[protection_name] = {
+                    "branches": branch_protection_branches,
+                    "protections": branch_protection_rules,
+                }
+
+            expected_repo_data["branch_protection"] = (
+                expanded_branch_protection_settings
+            )
+        elif key == "rulesets":
+            # Get the desired ruleset settings from the repo_data
+            desired_ruleset_settings = repo_config_data.get("rulesets", {})
+            # Expand multiple ruleset entries
+            expanded_ruleset_settings = {}
+            for ruleset_name, ruleset_data in desired_ruleset_settings.items():
+                if not ruleset_data:
+                    # Use default ruleset settings if desired config is empty
+                    ruleset_data = default_config_data.get("rulesets", {}).get(
+                        ruleset_name, {}
+                    )
+
+                # Validate the ruleset structure
+                if not isinstance(ruleset_data, dict):
+                    log_message(
+                        LogLevel.WARNING,
+                        f"Ruleset data type is unrecognized for '{ruleset_name}'.",
+                        indent_level=indent_level,
+                    )
+                    ruleset_data = {}
+
+                expanded_ruleset_settings[ruleset_name] = ruleset_data
+
+            expected_repo_data["rulesets"] = expanded_ruleset_settings
         else:
             expected_repo_data[key] = value
 
