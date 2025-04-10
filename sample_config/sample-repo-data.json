@@ -68,18 +68,21 @@
                     "*.tgz",
                     "*.tar.bz2"
                 ],
+                "type:": "inline",
                 "branches": [
                     "main"
                 ]
             },
             "fromurl_sample": {
                 "config": "https://raw.githubusercontent.com/github/gitignore/refs/heads/main/Python.gitignore",
+                "type:": "url",
                 "branches": [
                     "main"
                 ]
             },               
             "fromfile_sample": {
-                "config": "../sample_config/sample.gitignore",
+                "config": "sample_config/sample.gitignore",
+                "type:": "file",
                 "branches": [
                     "main"
                 ]
