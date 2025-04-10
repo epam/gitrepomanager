@@ -986,12 +986,12 @@ def github_enforce_repo_team_permissions(
                     log_message(
                         LogLevel.INFO,
                         f"Would have removed team {team} from {repo_name} but permissions_remove_unwanted={permissions_remove_unwanted} and permissions_remove_unwanted_force_false={permissions_remove_unwanted_force_false}",
-                        indent_level=indent_level,
+                        indent_level=indent_level + 1,
                     )
                     log_message(
                         LogLevel.WARNING,
                         f"PERMISSIONCORRECTION:REMOVEREQUEST:{repo_name}:{team}:{current_permission}:{desired_permission}",
-                        indent_level=indent_level,
+                        indent_level=indent_level + 1,
                     )
             else:
                 # if there is a difference in permission, so add/update
@@ -1018,12 +1018,12 @@ def github_enforce_repo_team_permissions(
                         log_message(
                             LogLevel.INFO,
                             f"Will NOT change {team} from {current_permission} to {desired_permission} as permissions_remove_unwanted={permissions_remove_unwanted} and permissions_remove_unwanted_force_false={permissions_remove_unwanted_force_false}",
-                            indent_level=indent_level,
+                            indent_level=indent_level + 1,
                         )
                         log_message(
                             LogLevel.WARNING,
                             f"PERMISSIONCORRECTION:CHANGEREQUEST:{repo_name}:{team}:{current_permission}:{desired_permission}",
-                            indent_level=indent_level,
+                            indent_level=indent_level + 1,
                         )
                     else:
                         try:
