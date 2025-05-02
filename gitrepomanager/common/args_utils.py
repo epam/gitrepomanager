@@ -50,72 +50,85 @@ def parse_arguments(*, parser, indent_level=0):
         args = parser.parse_args()
 
         # Check if script_config_file is provided
-        if args.script_config_file:
+        if hasattr(args, "script_config_file") and args.script_config_file:
+            if not re.match(r"^[a-zA-Z0-9.-_]+$", args.script_config_file):
+                raise argparse.ArgumentTypeError(
+                    "script_config_file must only contain alphanumeric characters and dot, hyphen and underscore"
+                )
+            if len(args.script_config_file) > 80:
+                raise argparse.ArgumentTypeError(
+                    "script_config_file must not exceed 80 characters."
+                )
+            if os.path.dirname(args.script_config_file):
+                raise argparse.ArgumentTypeError(
+                    f"{args.script_config_file} must be a filename only, without any directory path."
+                )
+
             # Two scenarios here:
             # 1. script_config_file is provided on the command line.
             # 2. script_config_file is not provided on the command line, but is set to the default value.
             #
             # So if the file exists, we use it. If the file does not exist, we raise an error if it was specified on the command line.
 
-            # Check if the script_config_file is an absolute path
-            if os.path.isabs(args.script_config_file):
-                script_config_file_path = args.script_config_file
-            else:
+            if hasattr(args, "config_directory") and args.config_directory:
+                if not re.match(r"^[a-zA-Z0-9.-_\\/]+$", args.config_directory):
+                    raise argparse.ArgumentTypeError(
+                        "script_config_file must only contain alphanumeric characters and dot, hyphen and underscore"
+                    )
+                if len(args.config_directory) > 80:
+                    raise argparse.ArgumentTypeError(
+                        "script_config_file must not exceed 80 characters."
+                    )
+                if not os.path.isdir(args.config_directory):
+                    raise argparse.ArgumentTypeError(
+                        f"config_directory {args.config_directory} is not a valid directory."
+                    )
+
                 script_config_file_path = make_full_path(
                     args.config_directory, args.script_config_file
                 )
-            # Check if the script_config_file exists
-            if not os.path.exists(script_config_file_path):
+                if not os.path.exists(script_config_file_path):
+                    raise argparse.ArgumentTypeError(
+                        f"script_config_file {script_config_file_path} not found."
+                    )
+
                 log_message(
                     LogLevel.DEBUG,
-                    "Script config file not found: {}",
+                    "Using script config file: {}",
                     script_config_file_path,
-                )
-                if "--script-config-file" in sys.argv:
+                )  # will only show if log level debug was set by now
+
+                config = load_config_from_file(script_config_file_path)
+                # Update the args namespace with the config values
+                if config is not None:
+                    for key, value in config.items():
+                        # only update the args namespace if the key exists in args
+                        # anything not set on command line will already be in args namespace as None
+                        # this ensures that only the keys that are valid for the script are updated,
+                        # and that command line arguments take precedence
+                        if key in vars(args):
+                            if vars(args)[key] is None:
+                                vars(args)[key] = value
+                        else:
+                            log_message(
+                                LogLevel.INFO,
+                                "Script config file contained invalid key: {}",
+                                key,
+                            )  # can only use info level here
+                else:
                     log_message(
-                        LogLevel.DEBUG,
-                        "script_config_file specified on the command line: {}",
-                        script_config_file_path,
-                    )
-                    raise FileNotFoundError(
-                        f"Script config file not found: {script_config_file_path}"
-                    )
+                        LogLevel.INFO,
+                        "Script config file specified but contained no config: {}",
+                        args.script_config_file,
+                    )  # can only use info level here
 
-            log_message(
-                LogLevel.DEBUG, "Using script config file: {}", script_config_file_path
-            )  # will only show if log level debug was set by now
-
-            config = load_config_from_file(script_config_file_path)
-            # Update the args namespace with the config values
-            if config is not None:
-                for key, value in config.items():
-                    # only update the args namespace if the key exists in args
-                    # anything not set on command line will already be in args namespace as None
-                    # this ensures that only the keys that are valid for the script are updated,
-                    # and that command line arguments take precedence
-                    if key in vars(args):
-                        if vars(args)[key] is None:
-                            vars(args)[key] = value
-                    else:
-                        log_message(
-                            LogLevel.INFO,
-                            "Script config file contained invalid key: {}",
-                            key,
-                        )  # can only use info level here
-            else:
-                log_message(
-                    LogLevel.INFO,
-                    "Script config file specified but contained no config: {}",
-                    args.script_config_file,
-                )  # can only use info level here
-
-            # Check if log_level is set and valid
-            if args.log_level:
-                if not args.log_level.upper() in LogLevel.__members__:
-                    raise ValueError(
-                        f"Invalid log level from script config file: {args.log_level}"
-                    )
-                configure_logging(log_level=LogLevel[args.log_level.upper()])
+                # Check if log_level is set and valid
+                if args.log_level:
+                    if not args.log_level.upper() in LogLevel.__members__:
+                        raise ValueError(
+                            f"Invalid log level from script config file: {args.log_level}"
+                        )
+                    configure_logging(log_level=LogLevel[args.log_level.upper()])
 
         log_message(LogLevel.DEBUG, "Arguments (net): {}", args)
         return args
