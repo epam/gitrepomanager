@@ -150,7 +150,7 @@ def main():
             type=str,
             nargs="?",
             default="config.json",
-            help="Path to json config file for this script (as an alternative to, and overrides command line arguments). Defaults to config.json.",
+            help="json config file for this script. Defaults to config.json.",
             action=AlphanumericAction,
             max_length=80,
         )
@@ -223,6 +223,28 @@ def main():
         if len(sys.argv) == 1:
             parser.print_help()
             sys.exit(1)
+
+        # Ensure --repo-config-file is a filename only
+        if args.repo_config_file and os.path.dirname(args.repo_config_file):
+            raise Exception(
+                "--repo-config-file must be a filename only, without any directory path."
+            )
+
+        # Ensure --script-config-file is a filename only
+        if args.script_config_file and os.path.dirname(args.script_config_file):
+            raise Exception(
+                "--script-config-file must be a filename only, without any directory path."
+            )
+
+        # Construct absolute paths for --repo-config-file and --script-config-file
+        if args.repo_config_file:
+            repo_config_file_path = make_full_path(
+                args.config_directory, args.repo_config_file
+            )
+        if args.script_config_file:
+            script_config_file_path = make_full_path(
+                args.config_directory, args.script_config_file
+            )
 
         # Log dry-run mode if enabled
         if args.target_dry_run:
