@@ -57,6 +57,7 @@ def main():
         start_time = datetime.now()
         unique_temp_path = create_unique_temp_directory()
         script_name = os.path.splitext(os.path.basename(__file__))[0]
+        config_directory = os.path.join(os.path.dirname(__file__), "config")
 
         # Configure logging
         # starts at info level, but can be overridden by command line arguments
@@ -82,14 +83,7 @@ def main():
         # 2) Settings in repo config file are overridden by script config file, which are overridden by command line arguments.
         # 3) Note that log-level has special handling to ensure the log_message function is set up by default to INFO,
         #    and updated as soon as possible to the level requested by the user.
-        parser.add_argument(
-            "--config-directory",
-            type=str,
-            default=os.path.dirname(__file__),
-            help="Config directory. Defaults to same directory as script.",
-            action=AlphanumericAction,
-            max_length=100,
-        )
+
         parser.add_argument(
             "--convert-csv-config-only",
             action="store_true",
@@ -215,7 +209,9 @@ def main():
         # TODO: add backup folder and functionality for svn sync to delete local persistent copy and restore from backup
         # TODO: create optional report output listing actions that need attention, eg. repos that failed to process
 
-        args = parse_arguments(parser=parser)
+        args = parse_arguments(
+            parser=parser, config_directory=config_directory, indent_level=0
+        )
         if not args:
             raise Exception("Error parsing command line and config file arguments.")
 
@@ -239,11 +235,11 @@ def main():
         # Construct absolute paths for --repo-config-file and --script-config-file
         if args.repo_config_file:
             repo_config_file_path = make_full_path(
-                args.config_directory, args.repo_config_file
+                config_directory, args.repo_config_file
             )
         if args.script_config_file:
             script_config_file_path = make_full_path(
-                args.config_directory, args.script_config_file
+                config_directory, args.script_config_file
             )
 
         # Log dry-run mode if enabled
@@ -264,7 +260,7 @@ def main():
                 repo_config_file_path = args.repo_config_file
             else:
                 repo_config_file_path = make_full_path(
-                    args.config_directory, args.repo_config_file
+                    config_directory, args.repo_config_file
                 )
 
         # Load script configuration from repo_config_file if 'settings' key is present
@@ -274,7 +270,7 @@ def main():
                 repo_config_file_path = args.repo_config_file
             else:
                 repo_config_file_path = make_full_path(
-                    args.config_directory, args.repo_config_file
+                    config_directory, args.repo_config_file
                 )
 
             log_message(
@@ -289,7 +285,7 @@ def main():
                     )
                 json_repo_config_file_path = temp_convert_csv_repo_config_file(
                     repo_config_file_path,
-                    script_config_dir=args.config_directory,  # Pass the script-config-dir
+                    script_config_dir=config_directory,  # Pass the script-config-dir
                     indent_level=1,
                 )
                 log_message(
@@ -344,7 +340,7 @@ def main():
                     raise Exception(
                         "No repository configuration data found in file: {} in directory {}",
                         args.repo_config_file,
-                        args.config_directory,
+                        config_directory,
                     )
             else:
                 raise Exception(
@@ -357,7 +353,7 @@ def main():
                     raise Exception(
                         "No defaults configuration data found in file: {} in directory {}",
                         args.repo_config_file,
-                        args.config_directory,
+                        config_directory,
                     )
 
             else:
@@ -698,7 +694,7 @@ def main():
                         dry_run=args.target_dry_run,
                         remove_unwanted_repo_settings=args.remove_unwanted_repo_settings,
                         permissions_remove_unwanted_force_false=args.permissions_remove_unwanted_force_false,
-                        config_directory=args.config_directory,
+                        config_directory=config_directory,
                     ):
                         log_message(
                             LogLevel.INFO,
