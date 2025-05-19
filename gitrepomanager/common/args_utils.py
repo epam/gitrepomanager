@@ -71,7 +71,7 @@ def parse_arguments(*, parser, config_directory, indent_level=0):
             # So if the file exists, we use it. If the file does not exist, we raise an error if it was specified on the command line.
 
             script_config_file_path = make_full_path(
-                config_directory, args.script_config_file
+                config_directory, os.path.basename(args.script_config_file)
             )
             if not os.path.exists(script_config_file_path):
                 raise argparse.ArgumentTypeError(
