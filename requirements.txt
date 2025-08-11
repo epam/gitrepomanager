@@ -1,5 +1,5 @@
 GitPython==3.1.44
-PyGithub==2.6.1
+PyGithub==2.7.0
 Black==25.1.0
 PyTest==8.4.1
 
